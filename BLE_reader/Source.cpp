@@ -50,9 +50,9 @@ void SomethingHappened(BTH_LE_GATT_EVENT_TYPE EventType, PVOID EventOutParameter
 			press |= (ValueChangedEventParameters->CharacteristicValue->Data[i] << (8 * i));
 			temp |= (ValueChangedEventParameters->CharacteristicValue->Data[i + 4] << (8 * i));
 		}
-		float press_f = (float)press / 10;
-		float temp_f = (float)temp / 10;
-		//printf("P @ T:\t%0.2f mbar @ %0.2f C\n", press_f, temp_f);
+		float press_f = (float)press / 100;
+		float temp_f = (float)temp / 100;
+		printf("P @ T:\t%0.2f mbar @ %0.2f C\n", press_f, temp_f);
 	}
 	else if (SMSS_IMU_CHAR_SIZE == CharSize) {
 		f2b_t grv[3] = { 0 };
@@ -65,9 +65,10 @@ void SomethingHappened(BTH_LE_GATT_EVENT_TYPE EventType, PVOID EventOutParameter
 	}
 	else {
 		printf("size %d,\t", ValueChangedEventParameters->CharacteristicValue->DataSize);
-		//for(int i=0; i<ValueChangedEventParameters->CharacteristicValue->DataSize;i++) {
-		//	printf("%0x",ValueChangedEventParameters->CharacteristicValue->Data[i]);
-		//}
+		for(int i=0; i<ValueChangedEventParameters->CharacteristicValue->DataSize;i++) {
+			printf("%0x",ValueChangedEventParameters->CharacteristicValue->Data[i]);
+		}
+		printf("\n");
 		// if the first bit is set, then the value is the next 2 bytes.  If it is clear, the value is in the next byte
 		//The Heart Rate Value Format bit (bit 0 of the Flags field) indicates if the data format of 
 		//the Heart Rate Measurement Value field is in a format of UINT8 or UINT16. 
@@ -75,14 +76,14 @@ void SomethingHappened(BTH_LE_GATT_EVENT_TYPE EventType, PVOID EventOutParameter
 		//Format bit shall be set to 0. When the Heart Rate Value format is sent in a UINT16 
 		//format, the Heart Rate Value Format bit shall be set to 1
 		//from this PDF https://www.bluetooth.org/docman/handlers/downloaddoc.ashx?doc_id=239866
-		unsigned heart_rate;
-		if (0x01 == (ValueChangedEventParameters->CharacteristicValue->Data[0] & 0x01)) {
-			heart_rate = ValueChangedEventParameters->CharacteristicValue->Data[1] * 256 + ValueChangedEventParameters->CharacteristicValue->Data[2];
-		}
-		else {
-			heart_rate = ValueChangedEventParameters->CharacteristicValue->Data[1];
-		}
-		printf("%d\n", heart_rate);
+		//unsigned heart_rate;
+		//if (0x01 == (ValueChangedEventParameters->CharacteristicValue->Data[0] & 0x01)) {
+		//	heart_rate = ValueChangedEventParameters->CharacteristicValue->Data[1] * 256 + ValueChangedEventParameters->CharacteristicValue->Data[2];
+		//}
+		//else {
+		//	heart_rate = ValueChangedEventParameters->CharacteristicValue->Data[1];
+		//}
+		//printf("%d\n", heart_rate);
 	}
 }
 
@@ -387,7 +388,6 @@ int main(int argc, char *argv[], char *envp[])
 
 		//set the appropriate callback function when the descriptor change value
 		BLUETOOTH_GATT_EVENT_HANDLE EventHandle;
-
 		if (currGattChar->IsNotifiable) {
 			printf("Setting Notification for ServiceHandle %d\n", currGattChar->ServiceHandle);
 			BTH_LE_GATT_EVENT_TYPE EventType = CharacteristicValueChangedEvent;
@@ -409,6 +409,26 @@ int main(int argc, char *argv[], char *envp[])
 			}
 		}
 
+		if (currGattChar->IsIndicatable) {
+			printf("Setting Indication for ServiceHandle %d\n", currGattChar->ServiceHandle);
+			BTH_LE_GATT_EVENT_TYPE EventType = CharacteristicValueChangedEvent;
+
+			BLUETOOTH_GATT_VALUE_CHANGED_EVENT_REGISTRATION EventParameterIn;
+			EventParameterIn.Characteristics[0] = *currGattChar;
+			EventParameterIn.NumCharacteristics = 1;
+			hr = BluetoothGATTRegisterEvent(
+				hLEDevice,
+				EventType,
+				&EventParameterIn,
+				(PFNBLUETOOTH_GATT_EVENT_CALLBACK)SomethingHappened,
+				NULL,
+				&EventHandle,
+				BLUETOOTH_GATT_FLAG_NONE);
+
+			if (S_OK != hr) {
+				printf("BluetoothGATTRegisterEvent - Actual Data %d", hr);
+			}
+		}
 
 		if (currGattChar->IsReadable) {//currGattChar->IsReadable
 									   ////////////////////////////////////////////////////////////////////////////
